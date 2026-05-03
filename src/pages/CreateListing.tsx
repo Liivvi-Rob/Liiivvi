@@ -1,10 +1,10 @@
 
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { createProperty, supabase } from '../lib/supabase'
-import { openai } from '../lib/openai'
+import { ChevronLeft, ChevronRight, Check } from 'lucide-react'
 
 declare global {
   interface Window {
@@ -32,77 +32,16 @@ interface PropertyForm {
 }
 
 function CreateListing() {
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<PropertyForm>()
-  const [generating, setGenerating] = useState(false)
+  const [currentStep, setCurrentStep] = useState(1)
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<PropertyForm>()
   const [uploading, setUploading] = useState(false)
   const [images, setImages] = useState<File[]>([])
   const navigate = useNavigate()
 
-  useEffect(() => {
-    const initAutocomplete = () => {
-      const input = document.getElementById('address') as HTMLInputElement
-      if (input && window.google) {
-        const autocomplete = new window.google.maps.places.Autocomplete(input, {
-          types: ['address'],
-          componentRestrictions: { country: 'us' }
-        })
+  const totalSteps = 4
 
-        autocomplete.addListener('place_changed', () => {
-          const place = autocomplete.getPlace()
-          if (place.formatted_address) {
-            setValue('address', place.formatted_address)
-          }
-
-          // Extract components
-          const components = place.address_components
-          if (components) {
-            const city = components.find((c: any) => c.types.includes('locality'))?.long_name
-            const state = components.find((c: any) => c.types.includes('administrative_area_level_1'))?.short_name
-            const zip = components.find((c: any) => c.types.includes('postal_code'))?.long_name
-
-            if (city) setValue('city', city)
-            if (state) setValue('state', state)
-            if (zip) setValue('zip', zip)
-          }
-        })
-      }
-    }
-
-    if (!window.google) {
-      const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`
-      script.async = true
-      script.defer = true
-      document.head.appendChild(script)
-      script.onload = initAutocomplete
-    } else {
-      initAutocomplete()
-    }
-  }, [setValue])
-
-  const generateDescription = async () => {
-    const data = watch()
-    if (!data.address || !data.beds || !data.baths || !data.price) {
-      alert('Please fill in address, beds, baths, and price first')
-      return
-    }
-
-    setGenerating(true)
-    try {
-      const prompt = `Generate a compelling real estate listing description for a ${data.beds} bedroom, ${data.baths} bathroom property located at ${data.address}, priced at $${data.price}. Make it engaging and highlight the best features for potential buyers.`
-
-      const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: prompt }]
-      })
-
-      setValue('description', response.choices[0].message.content || '')
-    } catch (error) {
-      console.error('Error generating description:', error)
-      alert('Failed to generate description')
-    } finally {
-      setGenerating(false)
-    }
+  const generateDescription = () => {
+    alert('AI description generation is disabled in this public-safe version. Please enter a description manually.')
   }
 
   const onSubmit = async (data: PropertyForm) => {
@@ -148,147 +87,291 @@ function CreateListing() {
     }
   }
 
+  const nextStep = () => {
+    if (currentStep < totalSteps) {
+      setCurrentStep(currentStep + 1)
+    }
+  }
+
+  const prevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1)
+    }
+  }
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Property Address</h2>
+              <p className="text-gray-600">Got it — nice area.</p>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-gray-700 mb-2 font-medium">Address</label>
+                <input
+                  id="address"
+                  {...register('address', { required: 'Address is required' })}
+                  type="text"
+                  className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter property address"
+                />
+                {errors.address && <p className="text-red-500 text-sm mt-1">{errors.address.message}</p>}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-700 mb-2 font-medium">City</label>
+                  <input
+                    {...register('city', { required: 'City is required' })}
+                    type="text"
+                    className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-gray-700 mb-2 font-medium">State</label>
+                  <input
+                    {...register('state', { required: 'State is required' })}
+                    type="text"
+                    className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.state && <p className="text-red-500 text-sm mt-1">{errors.state.message}</p>}
+                </div>
+              </div>
+              <div>
+                <label className="block text-gray-700 mb-2 font-medium">ZIP Code</label>
+                <input
+                  {...register('zip', { required: 'ZIP is required' })}
+                  type="text"
+                  className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {errors.zip && <p className="text-red-500 text-sm mt-1">{errors.zip.message}</p>}
+              </div>
+            </div>
+          </div>
+        )
+
+      case 2:
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Property Photos</h2>
+              <p className="text-gray-600">Front photo works great as a cover.</p>
+            </div>
+            <div>
+              <label className="block text-gray-700 mb-4 font-medium">Upload Photos (up to 25)</label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => setImages(Array.from(e.target.files || []))}
+                  className="hidden"
+                  id="photo-upload"
+                />
+                <label
+                  htmlFor="photo-upload"
+                  className="cursor-pointer bg-blue-600 text-white px-6 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  Choose Photos
+                </label>
+                {images.length > 0 && (
+                  <p className="text-gray-600 mt-4">{images.length} photo(s) selected</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+
+      case 3:
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Property Details</h2>
+              <p className="text-gray-600">Want me to improve this description?</p>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-gray-700 mb-2 font-medium">Property Title</label>
+                <input
+                  {...register('title', { required: 'Title is required' })}
+                  type="text"
+                  className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Beautiful 3BR Home"
+                />
+                {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-700 mb-2 font-medium">Bedrooms</label>
+                  <input
+                    {...register('beds', { required: 'Bedrooms is required', min: 0 })}
+                    type="number"
+                    className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.beds && <p className="text-red-500 text-sm mt-1">{errors.beds.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-gray-700 mb-2 font-medium">Bathrooms</label>
+                  <input
+                    {...register('baths', { required: 'Bathrooms is required', min: 0 })}
+                    type="number"
+                    step="0.5"
+                    className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.baths && <p className="text-red-500 text-sm mt-1">{errors.baths.message}</p>}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-700 mb-2 font-medium">Price</label>
+                  <input
+                    {...register('price', { required: 'Price is required', min: 0 })}
+                    type="number"
+                    className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="$"
+                  />
+                  {errors.price && <p className="text-red-500 text-sm mt-1">{errors.price.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-gray-700 mb-2 font-medium">Square Feet</label>
+                  <input
+                    {...register('sqft', { min: 0 })}
+                    type="number"
+                    className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-gray-700 mb-2 font-medium">Description</label>
+                <textarea
+                  {...register('description')}
+                  className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={4}
+                  placeholder="Describe your property..."
+                ></textarea>
+                <button
+                  type="button"
+                  onClick={generateDescription}
+                  className="mt-3 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm"
+                >
+                  Generate with AI
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+
+      case 4:
+        const formData = watch()
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Review & Publish</h2>
+              <p className="text-gray-600">Ready to list your property!</p>
+            </div>
+            <div className="bg-gray-50 p-6 rounded-lg space-y-4">
+              <div>
+                <h3 className="font-semibold text-lg mb-2">{formData.title}</h3>
+                <p className="text-gray-600">{formData.address}, {formData.city}, {formData.state} {formData.zip}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium">Price:</span> ${formData.price?.toLocaleString()}
+                </div>
+                <div>
+                  <span className="font-medium">Beds/Baths:</span> {formData.beds}/{formData.baths}
+                </div>
+                {formData.sqft && (
+                  <div>
+                    <span className="font-medium">Sq Ft:</span> {formData.sqft.toLocaleString()}
+                  </div>
+                )}
+                <div>
+                  <span className="font-medium">Photos:</span> {images.length}
+                </div>
+              </div>
+              {formData.description && (
+                <div>
+                  <span className="font-medium">Description:</span>
+                  <p className="text-gray-600 mt-1 text-sm">{formData.description}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+
+      default:
+        return null
+    }
+  }
+
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Create New Listing</h1>
-      <form onSubmit={handleSubmit(onSubmit)} className="bg-white p-6 rounded-lg shadow-md">
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Title</label>
-          <input
-            {...register('title', { required: 'Title is required' })}
-            type="text"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            placeholder="Property title"
-          />
-          {errors.title && <p className="text-red-500 text-sm">{errors.title.message}</p>}
-        </div>
-
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Address</label>
-          <input
-            id="address"
-            {...register('address', { required: 'Address is required' })}
-            type="text"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter property address"
-          />
-          {errors.address && <p className="text-red-500 text-sm">{errors.address.message}</p>}
-        </div>
-
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <div>
-            <label className="block text-gray-700 mb-2">City</label>
-            <input
-              {...register('city', { required: 'City is required' })}
-              type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-            {errors.city && <p className="text-red-500 text-sm">{errors.city.message}</p>}
+    <div className="min-h-screen bg-gray-50">
+      {/* Progress Header */}
+      <div className="bg-white shadow-sm">
+        <div className="max-w-md mx-auto px-4 py-4">
+          <div className="flex items-center justify-between mb-4">
+            {currentStep > 1 && (
+              <button
+                onClick={prevStep}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <ChevronLeft size={24} />
+              </button>
+            )}
+            <div className="flex-1 flex justify-center">
+              <div className="flex space-x-2">
+                {Array.from({ length: totalSteps }, (_, i) => (
+                  <div
+                    key={i}
+                    className={`h-2 w-12 rounded-full ${
+                      i + 1 <= currentStep ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+            {currentStep > 1 && <div className="w-10" />}
           </div>
-          <div>
-            <label className="block text-gray-700 mb-2">State</label>
-            <input
-              {...register('state', { required: 'State is required' })}
-              type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-            {errors.state && <p className="text-red-500 text-sm">{errors.state.message}</p>}
-          </div>
-          <div>
-            <label className="block text-gray-700 mb-2">ZIP</label>
-            <input
-              {...register('zip', { required: 'ZIP is required' })}
-              type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-            {errors.zip && <p className="text-red-500 text-sm">{errors.zip.message}</p>}
+          <div className="text-center">
+            <span className="text-sm text-gray-500">
+              Step {currentStep} of {totalSteps}
+            </span>
           </div>
         </div>
+      </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-gray-700 mb-2">Bedrooms</label>
-            <input
-              {...register('beds', { required: 'Bedrooms is required', min: 0 })}
-              type="number"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-            {errors.beds && <p className="text-red-500 text-sm">{errors.beds.message}</p>}
+      {/* Content */}
+      <div className="max-w-md mx-auto px-4 py-8">
+        <form onSubmit={handleSubmit(onSubmit)}>
+          {renderStepContent()}
+
+          {/* Navigation */}
+          <div className="mt-8 space-y-4">
+            {currentStep < totalSteps ? (
+              <button
+                type="button"
+                onClick={nextStep}
+                className="w-full bg-blue-600 text-white py-4 px-6 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center"
+              >
+                Next <ChevronRight size={20} className="ml-2" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={uploading}
+                className="w-full bg-green-600 text-white py-4 px-6 rounded-lg text-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center"
+              >
+                {uploading ? 'Publishing...' : 'Publish Listing'} <Check size={20} className="ml-2" />
+              </button>
+            )}
           </div>
-          <div>
-            <label className="block text-gray-700 mb-2">Bathrooms</label>
-            <input
-              {...register('baths', { required: 'Bathrooms is required', min: 0 })}
-              type="number"
-              step="0.5"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-            {errors.baths && <p className="text-red-500 text-sm">{errors.baths.message}</p>}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-gray-700 mb-2">Price</label>
-            <input
-              {...register('price', { required: 'Price is required', min: 0 })}
-              type="number"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter price"
-            />
-            {errors.price && <p className="text-red-500 text-sm">{errors.price.message}</p>}
-          </div>
-          <div>
-            <label className="block text-gray-700 mb-2">Square Feet</label>
-            <input
-              {...register('sqft', { min: 0 })}
-              type="number"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="Optional"
-            />
-          </div>
-        </div>
-
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Description</label>
-          <textarea
-            {...register('description')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            rows={4}
-            placeholder="Describe the property"
-          ></textarea>
-          <button
-            type="button"
-            onClick={generateDescription}
-            disabled={generating}
-            className="mt-2 bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 disabled:opacity-50"
-          >
-            {generating ? 'Generating...' : 'Generate with AI'}
-          </button>
-        </div>
-
-        <div className="mb-6">
-          <label className="block text-gray-700 mb-2">Photos (up to 25)</label>
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={(e) => setImages(Array.from(e.target.files || []))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-          />
-          {images.length > 0 && (
-            <p className="text-sm text-gray-600 mt-1">{images.length} file(s) selected</p>
-          )}
-        </div>
-
-        <button
-          type="submit"
-          disabled={uploading}
-          className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-        >
-          {uploading ? 'Creating...' : 'Create Listing'}
-        </button>
-      </form>
+        </form>
+      </div>
     </div>
   )
 }

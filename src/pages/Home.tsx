@@ -1,6 +1,32 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
+import PropertySourceToggle from '../components/PropertySourceToggle'
 
 function Home() {
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showFSBO, setShowFSBO] = useState(true)
+  const [showMLS, setShowMLS] = useState(true)
+  const navigate = useNavigate()
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      const params = new URLSearchParams({
+        q: searchQuery.trim(),
+        fsbo: showFSBO.toString(),
+        mls: showMLS.toString()
+      })
+      navigate(`/search?${params.toString()}`)
+    }
+  }
+
+  const handleToggle = (source: 'fsbo' | 'mls', value: boolean) => {
+    if (source === 'fsbo') {
+      setShowFSBO(value)
+    } else {
+      setShowMLS(value)
+    }
+  }
   return (
     <div className="bg-gray-50">
       {/* Hero Section */}
@@ -31,16 +57,28 @@ function Home() {
           </div>
           {/* Search Bar */}
           <div className="max-w-2xl mx-auto">
-            <div className="flex">
-              <input
-                type="text"
-                placeholder="Enter city, neighborhood, or address"
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <button className="bg-blue-600 text-white px-6 py-3 rounded-r-lg hover:bg-blue-700">
-                Search
-              </button>
-            </div>
+            <PropertySourceToggle
+              showFSBO={showFSBO}
+              showMLS={showMLS}
+              onToggle={handleToggle}
+            />
+            <form onSubmit={handleSearch}>
+              <div className="flex">
+                <input
+                  type="text"
+                  placeholder="Enter city, neighborhood, or address"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <button
+                  type="submit"
+                  className="bg-blue-600 text-white px-6 py-3 rounded-r-lg hover:bg-blue-700"
+                >
+                  Search
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </section>

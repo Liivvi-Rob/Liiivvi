@@ -53,6 +53,28 @@ export interface Message {
   created_at: string
 }
 
+export interface MLSPreviewProperty {
+  id: string
+  source?: string
+  source_url: string
+  image_url?: string
+  price?: number
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
+  bedrooms?: number
+  bathrooms?: number
+  square_feet?: number
+  property_type?: string
+  status?: string
+  raw_data?: any
+  is_active?: boolean
+  last_synced_at?: string
+  created_at: string
+  updated_at: string
+}
+
 export interface PropertyAnalytics {
   id: string
   property_id: string
@@ -60,9 +82,50 @@ export interface PropertyAnalytics {
   created_at: string
 }
 
+export interface Offer {
+  id: string
+  property_id?: string
+  mls_preview_property_id?: string
+  source: 'fsbo' | 'mls'
+  source_url?: string
+  property_address?: string
+  property_city?: string
+  property_state?: string
+  property_price?: number
+  offer_price: number
+  financing_type?: 'cash' | 'loan' | 'other'
+  inspection?: boolean
+  closing_days?: number
+  buyer_name: string
+  buyer_email: string
+  buyer_phone?: string
+  has_agent: boolean
+  buyer_agent_name?: string
+  buyer_agent_email?: string
+  buyer_agent_phone?: string
+  notes?: string
+  status: string
+  raw_offer?: any
+  created_at: string
+  updated_at: string
+}
+
+export interface PropertySearchEvent {
+  id: string
+  search_query: string
+  fsbo_enabled: boolean
+  mls_enabled: boolean
+  results_count: number
+  user_agent?: string
+  ip_address?: string
+  created_at: string
+}
+
 // Functions
-export const fetchProperties = async (filters?: { status?: string; city?: string; state?: string }) => {
-  let query = supabase.from('properties').select('*')
+export const fetchProperties = async (filters?: { status?: string; city?: string; state?: string; query?: string }) => {
+  let query = supabase
+    .from('properties')
+    .select('id,title,price,address,city,state,zip,beds,baths,sqft,description,status,propy_url,cover_image_url,image_urls,created_at,updated_at')
 
   if (filters?.status) {
     query = query.eq('status', filters.status)
@@ -76,6 +139,10 @@ export const fetchProperties = async (filters?: { status?: string; city?: string
     query = query.eq('state', filters.state)
   }
 
+  if (filters?.query) {
+    query = query.or(`address.ilike.%${filters.query}%,city.ilike.%${filters.query}%,state.ilike.%${filters.query}%,zip.ilike.%${filters.query}%,description.ilike.%${filters.query}%,property_type.ilike.%${filters.query}%`)
+  }
+
   const { data, error } = await query.order('created_at', { ascending: false })
 
   if (error) throw error
@@ -85,7 +152,7 @@ export const fetchProperties = async (filters?: { status?: string; city?: string
 export const fetchPropertyById = async (id: string) => {
   const { data, error } = await supabase
     .from('properties')
-    .select('*')
+    .select('id,title,price,address,city,state,zip,beds,baths,sqft,description,status,propy_url,cover_image_url,image_urls,created_at,updated_at')
     .eq('id', id)
     .single()
 
@@ -169,4 +236,77 @@ export const fetchMessages = async (propertyId?: string) => {
 
   if (error) throw error
   return data as Message[]
+}
+
+export const fetchMLSPreviewProperties = async (filters?: { city?: string; state?: string; query?: string }) => {
+  let query = supabase
+    .from('mls_preview_properties')
+    .select('id,source,source_url,image_url,price,address,city,state,zip,bedrooms,bathrooms,square_feet,property_type,status,is_active,last_synced_at,created_at,updated_at')
+
+  if (filters?.city) {
+    query = query.ilike('city', `%${filters.city}%`)
+  }
+
+  if (filters?.state) {
+    query = query.eq('state', filters.state)
+  }
+
+  if (filters?.query) {
+    query = query.or(`address.ilike.%${filters.query}%,city.ilike.%${filters.query}%,state.ilike.%${filters.query}%,zip.ilike.%${filters.query}%,property_type.ilike.%${filters.query}%`)
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false })
+
+  if (error) throw error
+  return data as MLSPreviewProperty[]
+}
+
+export const createOffer = async (offer: Omit<Offer, 'id' | 'created_at' | 'updated_at'>) => {
+  const { data, error } = await supabase
+    .from('offers')
+    .insert(offer)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Offer
+}
+
+export const createPropertySearchEvent = async (event: Omit<PropertySearchEvent, 'id' | 'created_at'>) => {
+  const { error } = await supabase
+    .from('property_search_events')
+    .insert(event)
+
+  if (error) throw error
+}
+
+export const isAdminUser = async () => {
+  const {
+    data: sessionData,
+    error: sessionError
+  } = await supabase.auth.getSession()
+
+  if (sessionError) {
+    throw sessionError
+  }
+
+  const userId = sessionData?.session?.user?.id
+  if (!userId) {
+    return false
+  }
+
+  const { data, error } = await supabase
+    .from('admin_users')
+    .select('id')
+    .eq('auth_user_id', userId)
+    .single()
+
+  if (error) {
+    if ((error as any).details?.includes('Results contain more than one row') || (error as any).message?.includes('Results contain more than one row')) {
+      return true
+    }
+    return false
+  }
+
+  return !!data
 }
