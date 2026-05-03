@@ -7,6 +7,7 @@ import CreateListing from './pages/CreateListing'
 import Admin from './pages/Admin'
 import Messages from './pages/Messages'
 import Schedule from './pages/Schedule'
+import SearchResultsPage from './pages/SearchResultsPage'
 
 function App() {
   return (
@@ -17,8 +18,9 @@ function App() {
         <Route path="/listing/:id" element={<PropertyDetail />} />
         <Route path="/create-listing" element={<CreateListing />} />
         <Route path="/admin" element={<Admin />} />
-        <Route path="/messages" element={<Messages />} />
+        <Route path="/messages/:propertyId" element={<Messages />} />
         <Route path="/schedule/:id" element={<Schedule />} />
+        <Route path="/search" element={<SearchResultsPage />} />
       </Routes>
     </Layout>
   )

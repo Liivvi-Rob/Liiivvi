@@ -43,11 +43,9 @@ This Liivvi app is designed to work alongside the existing Airo-built website as
 
 3. Set up environment variables:
    - Copy `.env.example` to `.env.local`
-   - Fill in your API keys (same as Airo site):
+   - Fill in your API keys:
      - `VITE_SUPABASE_URL`: Your Supabase project URL
      - `VITE_SUPABASE_ANON_KEY`: Your Supabase anonymous key
-     - `VITE_OPENAI_API_KEY`: Your OpenAI API key
-     - `VITE_GOOGLE_MAPS_API_KEY`: Your Google Maps API key
 
 4. Start the development server:
    ```bash
@@ -106,9 +104,7 @@ This app is configured for deployment on Vercel. Make sure all environment varia
 3. **Environment Variables**:
    Add these in Vercel project settings:
    - `VITE_SUPABASE_URL`: Your Supabase project URL
-   - `VITE_SUPABASE_ANON_KEY`: Your Supabase anonymous key  
-   - `VITE_OPENAI_API_KEY`: Your OpenAI API key
-   - `VITE_GOOGLE_MAPS_API_KEY`: Your Google Maps API key
+   - `VITE_SUPABASE_ANON_KEY`: Your Supabase anonymous key
 
 4. **Deploy**: Click "Deploy" and wait for completion
 

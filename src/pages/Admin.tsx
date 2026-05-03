@@ -1,42 +1,135 @@
 
 
-import { useState, useEffect } from 'react'
-import { fetchProperties, updateProperty } from '../lib/supabase'
+import React, { useState, useEffect } from 'react'
+import { fetchProperties, updateProperty, isAdminUser, supabase } from '../lib/supabase'
 import type { Property } from '../lib/supabase'
 
 function Admin() {
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
+  const [adminLoading, setAdminLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
-    const loadProperties = async () => {
+    const initAdmin = async () => {
       try {
-        const data = await fetchProperties()
-        setProperties(data)
+        const admin = await isAdminUser()
+        setIsAdmin(admin)
+        if (admin) {
+          await loadProperties()
+        }
       } catch (error) {
-        console.error('Error loading properties:', error)
+        console.error('Error checking admin status:', error)
       } finally {
-        setLoading(false)
+        setAdminLoading(false)
       }
     }
 
-    loadProperties()
+    initAdmin()
   }, [])
+
+  const loadProperties = async () => {
+    setLoading(true)
+    try {
+      const data = await fetchProperties()
+      setProperties(data)
+    } catch (error) {
+      console.error('Error loading properties:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleStatusChange = async (propertyId: string, newStatus: Property['status']) => {
     try {
       await updateProperty(propertyId, { status: newStatus })
-      // Refresh the list
-      const data = await fetchProperties()
-      setProperties(data)
+      await loadProperties()
     } catch (error) {
       console.error('Error updating property:', error)
+    }
+  }
+
+  const handleSignIn = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setErrorMessage('')
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    })
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
+    try {
+      const admin = await isAdminUser()
+      setIsAdmin(admin)
+      if (admin) {
+        await loadProperties()
+      } else {
+        setErrorMessage('You are not authorized to access this dashboard.')
+      }
+    } catch (error) {
+      setErrorMessage('Error verifying admin access.')
+      console.error(error)
     }
   }
 
   const totalListings = properties.length
   const activeListings = properties.filter(p => p.status === 'active').length
   const soldListings = properties.filter(p => p.status === 'sold').length
+
+  if (adminLoading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center">Checking admin access...</div>
+      </div>
+    )
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="bg-white p-8 rounded-lg shadow-md">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Admin Sign In</h1>
+          <p className="text-gray-600 mb-6">
+            This dashboard is restricted to registered Liivvi admins.
+          </p>
+          <form onSubmit={handleSignIn} className="space-y-4">
+            <div>
+              <label className="block text-gray-700 mb-2">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-gray-700 mb-2">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                required
+              />
+            </div>
+            {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
+            <button type="submit" className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700">
+              Sign In
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
